@@ -50,3 +50,6 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
+User.md
+SOCIAL_AUTH_README.md
+SOCIAL_AUTH_SETUP.md
