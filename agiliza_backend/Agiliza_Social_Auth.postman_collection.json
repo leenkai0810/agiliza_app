@@ -1,0 +1,196 @@
+{
+  "info": {
+    "name": "Agiliza Social Authentication API",
+    "description": "API collection for testing Google and Apple Sign-In endpoints",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Social Auth - Google",
+      "item": [
+        {
+          "name": "Google Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_token\": \"YOUR_GOOGLE_ID_TOKEN\"\n}\n\nOR\n\n{\n  \"access_token\": \"YOUR_GOOGLE_ACCESS_TOKEN\"\n}\n\nOR\n\n{\n  \"code\": \"YOUR_GOOGLE_AUTHORIZATION_CODE\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/google/login/",
+              "host": ["{{base_url}}"],
+              "path": ["google", "login", ""]
+            },
+            "description": "Login with Google OAuth2 token. Supports id_token, access_token, or authorization code."
+          },
+          "response": []
+        },
+        {
+          "name": "Google Connect Account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_token\": \"YOUR_GOOGLE_ID_TOKEN\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/google/connect/",
+              "host": ["{{base_url}}"],
+              "path": ["google", "connect", ""]
+            },
+            "description": "Connect Google account to existing authenticated user."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Social Auth - Apple",
+      "item": [
+        {
+          "name": "Apple Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_token\": \"YOUR_APPLE_ID_TOKEN\"\n}\n\nOR\n\n{\n  \"access_token\": \"YOUR_APPLE_ACCESS_TOKEN\"\n}\n\nOR\n\n{\n  \"code\": \"YOUR_APPLE_AUTHORIZATION_CODE\",\n  \"user\": {\n    \"name\": {\n      \"firstName\": \"John\",\n      \"lastName\": \"Doe\"\n    },\n    \"email\": \"user@privaterelay.appleid.com\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/apple/login/",
+              "host": ["{{base_url}}"],
+              "path": ["apple", "login", ""]
+            },
+            "description": "Login with Apple OAuth2. Supports id_token, access_token, code, or code with user info."
+          },
+          "response": []
+        },
+        {
+          "name": "Apple Connect Account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_token\": \"YOUR_APPLE_ID_TOKEN\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/apple/connect/",
+              "host": ["{{base_url}}"],
+              "path": ["apple", "connect", ""]
+            },
+            "description": "Connect Apple account to existing authenticated user."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Social Accounts Management",
+      "item": [
+        {
+          "name": "List Connected Social Accounts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/social/accounts/",
+              "host": ["{{base_url}}"],
+              "path": ["social", "accounts", ""]
+            },
+            "description": "Get list of all social accounts connected to the authenticated user."
+          },
+          "response": []
+        },
+        {
+          "name": "Disconnect Social Account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider\": \"google\"\n}\n\nOR\n\n{\n  \"provider\": \"apple\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/social/disconnect/",
+              "host": ["{{base_url}}"],
+              "path": ["social", "disconnect", ""]
+            },
+            "description": "Disconnect a social account from the authenticated user."
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000/api/auth",
+      "type": "string"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refresh_token",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}
