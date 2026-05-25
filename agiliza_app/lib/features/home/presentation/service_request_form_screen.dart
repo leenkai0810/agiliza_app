@@ -7,10 +7,18 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/widgets/app_back_app_bar.dart';
 import '../../../core/widgets/empty_view.dart';
 import '../../../core/widgets/error_view.dart';
+import '../../../core/utils/datetime_utils.dart';
 import 'home_providers.dart';
 
 class ServiceRequestFormScreen extends ConsumerStatefulWidget {
-  const ServiceRequestFormScreen({super.key});
+  const ServiceRequestFormScreen({
+    super.key,
+    this.professionalProfileId,
+    this.initialCategoryId,
+  });
+
+  final String? professionalProfileId;
+  final String? initialCategoryId;
 
   @override
   ConsumerState<ServiceRequestFormScreen> createState() => _ServiceRequestFormScreenState();
@@ -68,14 +76,28 @@ class _ServiceRequestFormScreenState extends ConsumerState<ServiceRequestFormScr
       _isSubmitting = true;
     });
 
+    final isoDateTime = buildIsoDateTime(
+      _dateController.text.trim(),
+      _timeController.text.trim(),
+    );
+
+    if (isoDateTime == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please choose a valid date and time.')),
+      );
+      setState(() => _isSubmitting = false);
+      return;
+    }
+
     try {
       await ref.read(requestHistoryProvider.notifier).createRequest(
             title: _titleController.text.trim(),
             description: _descriptionController.text.trim(),
             address: _addressController.text.trim(),
-            requestedDate: _dateController.text.trim(),
-            scheduledDate: _dateController.text.trim(),
+            requestedDate: isoDateTime,
+            scheduledDate: isoDateTime,
             categoryId: _selectedCategoryId!,
+            professionalProfileId: widget.professionalProfileId,
           );
 
       if (!mounted) return;
@@ -115,7 +137,7 @@ class _ServiceRequestFormScreenState extends ConsumerState<ServiceRequestFormScr
             );
           }
 
-          _selectedCategoryId ??= categories.first.id;
+          _selectedCategoryId ??= widget.initialCategoryId ?? categories.first.id;
 
           return SingleChildScrollView(
             padding: AppSizes.pagePadding,

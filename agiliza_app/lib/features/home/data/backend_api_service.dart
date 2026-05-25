@@ -157,6 +157,7 @@ class BackendApiService {
     required String requestedDate,
     required String scheduledDate,
     required String categoryId,
+    String? professionalProfileId,
     double? latitude,
     double? longitude,
   }) async {
@@ -166,8 +167,11 @@ class BackendApiService {
       'address': address,
       'requested_date': requestedDate,
       'scheduled_date': scheduledDate,
-      'category': categoryId,
+      'category_id': categoryId,
     };
+    if (professionalProfileId != null && professionalProfileId.isNotEmpty) {
+      payload['professional_profile_id'] = int.parse(professionalProfileId);
+    }
     if (latitude != null) payload['latitude'] = latitude;
     if (longitude != null) payload['longitude'] = longitude;
     final response = await _apiClient.post<Map<String, dynamic>>(
@@ -175,6 +179,83 @@ class BackendApiService {
       data: payload,
     );
     return ServiceRequest.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<ServiceRequest> updateRequestStatus({
+    required String requestId,
+    required String status,
+  }) async {
+    final response = await _apiClient.post<Map<String, dynamic>>(
+      '${AppStrings.serviceRequestsEndpoint}$requestId/status/',
+      data: {'status': status},
+    );
+    final data = response.data;
+    if (data == null) {
+      throw Exception('Failed to update request status');
+    }
+    return ServiceRequest.fromJson(data);
+  }
+
+  Future<ProfessionalProfile> fetchMyProfessionalProfile() async {
+    final response = await _apiClient.get<Map<String, dynamic>>(
+      AppStrings.professionalMeEndpoint,
+    );
+    final data = response.data;
+    if (data == null) {
+      throw Exception('Professional profile data missing');
+    }
+    return ProfessionalProfile.fromJson(data);
+  }
+
+  Future<ProfessionalProfile> updateMyProfessionalProfile({
+    required String bio,
+    required int yearsExperience,
+    required double hourlyRate,
+    required int serviceRadiusKm,
+    required String address,
+    double? latitude,
+    double? longitude,
+    List<String>? categoryIds,
+  }) async {
+    final payload = <String, dynamic>{
+      'bio': bio,
+      'years_experience': yearsExperience,
+      'hourly_rate': hourlyRate.toStringAsFixed(2),
+      'service_radius_km': serviceRadiusKm,
+      'address': address,
+    };
+    if (latitude != null) payload['latitude'] = latitude;
+    if (longitude != null) payload['longitude'] = longitude;
+    if (categoryIds != null) {
+      payload['category_ids'] = categoryIds;
+    }
+    final response = await _apiClient.patch<Map<String, dynamic>>(
+      AppStrings.professionalMeEndpoint,
+      data: payload,
+    );
+    final data = response.data;
+    if (data == null) {
+      throw Exception('Failed to update professional profile');
+    }
+    return ProfessionalProfile.fromJson(data);
+  }
+
+  Future<PortfolioItem> createPortfolioItemFromBytes({
+    required String title,
+    required String description,
+    required List<int> imageBytes,
+    String filename = 'portfolio.jpg',
+  }) async {
+    final formData = FormData.fromMap({
+      'title': title,
+      'description': description,
+      'image': MultipartFile.fromBytes(imageBytes, filename: filename),
+    });
+    final response = await _apiClient.post<Map<String, dynamic>>(
+      AppStrings.portfolioEndpoint,
+      data: formData,
+    );
+    return PortfolioItem.fromJson(response.data as Map<String, dynamic>);
   }
 
   Future<QuoteResponse> createQuote({
@@ -205,14 +286,19 @@ class BackendApiService {
     required String professionalProfileId,
     required int rating,
     required String comment,
+    String? serviceRequestId,
   }) async {
+    final payload = <String, dynamic>{
+      'professional_profile': int.parse(professionalProfileId),
+      'rating': rating,
+      'comment': comment,
+    };
+    if (serviceRequestId != null && serviceRequestId.isNotEmpty) {
+      payload['service_request_id'] = serviceRequestId;
+    }
     final response = await _apiClient.post<Map<String, dynamic>>(
       AppStrings.reviewsEndpoint,
-      data: {
-        'professional_profile': professionalProfileId,
-        'rating': rating,
-        'comment': comment,
-      },
+      data: payload,
     );
     return ReviewItem.fromJson(response.data as Map<String, dynamic>);
   }

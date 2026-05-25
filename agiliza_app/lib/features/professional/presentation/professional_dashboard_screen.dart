@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_sizes.dart';
+import '../../../core/utils/currency_format.dart';
 import '../../professional/data/providers.dart';
 
 class ProfessionalDashboardScreen extends ConsumerWidget {
@@ -243,7 +244,11 @@ class _StatsSection extends StatelessWidget {
         _StatCard(label: 'Pending', value: data.pendingRequests.toString(), icon: Icons.pending_actions_rounded),
         _StatCard(label: 'Active Jobs', value: data.activeJobs.toString(), icon: Icons.work_rounded),
         _StatCard(label: 'Completed', value: data.completedJobs.toString(), icon: Icons.task_alt_rounded),
-        _StatCard(label: 'Earnings', value: '₹${data.monthlyEarnings}', icon: Icons.currency_rupee_rounded),
+        _StatCard(
+          label: 'Earnings',
+          value: CurrencyFormat.format(data.monthlyEarnings),
+          icon: Icons.attach_money_rounded,
+        ),
       ],
     );
   }

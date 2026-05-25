@@ -1,16 +1,97 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_sizes.dart';
+import '../../../core/utils/currency_format.dart';
 import '../../../core/widgets/app_back_app_bar.dart';
+import '../../../core/widgets/error_view.dart';
+import '../data/models/backend_models.dart';
+import 'home_providers.dart';
 
-class QuoteResponseScreen extends StatelessWidget {
+class QuoteScreenArgs {
   final QuoteResponse quote;
+  final String requestId;
 
-  const QuoteResponseScreen({super.key, QuoteResponse? quote})
-      : quote = quote ?? _defaultQuote;
+  const QuoteScreenArgs({
+    required this.quote,
+    required this.requestId,
+  });
+}
+
+class QuoteResponseScreen extends ConsumerStatefulWidget {
+  final QuoteScreenArgs? args;
+
+  const QuoteResponseScreen({super.key, this.args});
+
+  @override
+  ConsumerState<QuoteResponseScreen> createState() => _QuoteResponseScreenState();
+}
+
+class _QuoteResponseScreenState extends ConsumerState<QuoteResponseScreen> {
+  bool _isUpdating = false;
+
+  QuoteScreenArgs? get _args => widget.args;
+
+  Future<void> _respondToQuote(String status) async {
+    final args = _args;
+    if (args == null) return;
+
+    setState(() => _isUpdating = true);
+
+    try {
+      await ref.read(requestHistoryProvider.notifier).updateRequestStatus(
+            requestId: args.requestId,
+            status: status,
+          );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            status == 'ACCEPTED'
+                ? 'Quote accepted successfully'
+                : 'Request cancelled',
+          ),
+        ),
+      );
+      context.pop(true);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Unable to update request: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isUpdating = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final args = _args;
+
+    if (args == null) {
+      return Scaffold(
+        appBar: const AppBackAppBar(title: Text('Quote response')),
+        body: ErrorView(
+          message: 'No quote was provided for this screen.',
+          onRetry: () => context.pop(),
+        ),
+      );
+    }
+
+    final quote = args.quote;
+    final professional = quote.professional;
+    final professionalName = professional?.fullName ?? 'Professional';
+    final avatarUrl = professional?.avatarUrl ?? '';
+    final categoryName = professional?.categories.isNotEmpty == true
+        ? professional!.categories.first.name
+        : 'Service';
+
     return Scaffold(
       appBar: const AppBackAppBar(
         title: Text('Quote response'),
@@ -24,7 +105,7 @@ class QuoteResponseScreen extends StatelessWidget {
             Text('Estimated price', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: AppSizes.xs),
             Text(
-              quote.price,
+              CurrencyFormat.format(double.tryParse(quote.price) ?? 0),
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: AppSizes.lg),
@@ -32,7 +113,7 @@ class QuoteResponseScreen extends StatelessWidget {
               children: [
                 _QuoteStat(label: 'Duration', value: quote.duration),
                 const SizedBox(width: AppSizes.sm),
-                _QuoteStat(label: 'Service type', value: quote.serviceType),
+                _QuoteStat(label: 'Category', value: categoryName),
               ],
             ),
             const SizedBox(height: AppSizes.xl),
@@ -42,11 +123,13 @@ class QuoteResponseScreen extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(AppSizes.md),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceVariant,
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(AppSizes.radius),
               ),
               child: Text(
-                quote.message,
+                quote.message.isNotEmpty
+                    ? quote.message
+                    : 'No additional message provided.',
                 style: Theme.of(context).textTheme.bodyLarge,
               ),
             ),
@@ -57,16 +140,31 @@ class QuoteResponseScreen extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 28,
-                  backgroundImage: NetworkImage(quote.professionalAvatarUrl),
+                  backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                  backgroundImage:
+                      avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
+                  child: avatarUrl.isEmpty
+                      ? Text(
+                          professionalName.isNotEmpty
+                              ? professionalName[0].toUpperCase()
+                              : 'P',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        )
+                      : null,
                 ),
                 const SizedBox(width: AppSizes.sm),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(quote.professionalName, style: Theme.of(context).textTheme.titleMedium),
-                    const SizedBox(height: AppSizes.xs),
-                    Text(quote.professionalRole, style: Theme.of(context).textTheme.bodyLarge),
-                  ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(professionalName, style: Theme.of(context).textTheme.titleMedium),
+                      const SizedBox(height: AppSizes.xs),
+                      Text(
+                        professional?.role ?? 'Professional',
+                        style: Theme.of(context).textTheme.bodyLarge,
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -75,19 +173,21 @@ class QuoteResponseScreen extends StatelessWidget {
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () {
-                      Navigator.of(context).pop(false);
-                    },
+                    onPressed: _isUpdating ? null : () => _respondToQuote('CANCELLED'),
                     child: const Text('Reject'),
                   ),
                 ),
                 const SizedBox(width: AppSizes.sm),
                 Expanded(
                   child: FilledButton(
-                    onPressed: () {
-                      Navigator.of(context).pop(true);
-                    },
-                    child: const Text('Accept'),
+                    onPressed: _isUpdating ? null : () => _respondToQuote('ACCEPTED'),
+                    child: _isUpdating
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Accept'),
                   ),
                 ),
               ],
@@ -111,7 +211,7 @@ class _QuoteStat extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(AppSizes.sm),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceVariant,
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(AppSizes.radius),
         ),
         child: Column(
@@ -119,40 +219,13 @@ class _QuoteStat extends StatelessWidget {
           children: [
             Text(label, style: Theme.of(context).textTheme.bodySmall),
             const SizedBox(height: AppSizes.xs),
-            Text(value, style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
+            Text(
+              value,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+            ),
           ],
         ),
       ),
     );
   }
 }
-
-class QuoteResponse {
-  final String price;
-  final String duration;
-  final String serviceType;
-  final String message;
-  final String professionalName;
-  final String professionalRole;
-  final String professionalAvatarUrl;
-
-  const QuoteResponse({
-    required this.price,
-    required this.duration,
-    required this.serviceType,
-    required this.message,
-    required this.professionalName,
-    required this.professionalRole,
-    required this.professionalAvatarUrl,
-  });
-}
-
-const _defaultQuote = QuoteResponse(
-  price: '480',
-  duration: '3–4 days',
-  serviceType: 'Full redesign',
-  message: 'I can complete the project within a week with a polished finish, including material sourcing and on-site supervision. Let me know if you would like to adjust the scope or schedule.',
-  professionalName: 'Clara Mendes',
-  professionalRole: 'Interior Design Pro',
-  professionalAvatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=200&q=80',
-);

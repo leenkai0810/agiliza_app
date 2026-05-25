@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/constants/app_strings.dart';
-import '../../home/presentation/quote_response_screen.dart';
+import '../../../core/utils/currency_format.dart';
 import 'create_quote_screen.dart';
 
 class ProfessionalRequestsScreen
@@ -29,11 +29,12 @@ class _ProfessionalRequestsScreenState
 
   List<dynamic> _requests = [];
 
-  final Map<Object, bool> _actionLoading = {};
+  final Map<String, bool> _actionLoading = {};
   final tabs = const [
     'Pending',
     'Quoted',
     'Accepted',
+    'Scheduled',
     'Completed',
     'Cancelled',
   ];
@@ -41,6 +42,7 @@ class _ProfessionalRequestsScreenState
     'PENDING',
     'QUOTED',
     'ACCEPTED',
+    'SCHEDULED',
     'COMPLETED',
     'CANCELLED',
   ];
@@ -64,10 +66,18 @@ class _ProfessionalRequestsScreenState
         queryParameters: status != null ? {'status': status} : null,
       );
 
-      final data = response.data as Map<String, dynamic>;
+      final raw = response.data;
+      final List<dynamic> items;
+      if (raw is List) {
+        items = raw;
+      } else if (raw is Map<String, dynamic> && raw['results'] is List) {
+        items = raw['results'] as List<dynamic>;
+      } else {
+        items = [];
+      }
 
       setState(() {
-        _requests = data['results'] as List<dynamic>;
+        _requests = items;
         _isLoading = false;
       });
     } catch (e) {
@@ -78,7 +88,7 @@ class _ProfessionalRequestsScreenState
     }
   }
 
-  Future<void> _updateRequestStatus(Object requestId, String status) async {
+  Future<void> _updateRequestStatus(String requestId, String status) async {
     setState(() {
       _actionLoading[requestId] = true;
     });
@@ -96,7 +106,9 @@ class _ProfessionalRequestsScreenState
 
       if (response.statusCode != null && response.statusCode! >= 200 && response.statusCode! < 300) {
         // Update local list if possible
-        final idx = _requests.indexWhere((e) => e['id'] == requestId);
+        final idx = _requests.indexWhere(
+          (e) => (e as Map<String, dynamic>)['id']?.toString() == requestId,
+        );
         if (idx != -1) {
           final updated = Map<String, dynamic>.from(_requests[idx] as Map<String, dynamic>);
           updated['status'] = status;
@@ -165,13 +177,6 @@ class _ProfessionalRequestsScreenState
                         fontWeight:
                             FontWeight.w800,
                       ),
-                    ),
-                  ),
-
-                  IconButton(
-                    onPressed: () => _loadRequests(status: statusValues[_selectedTab]),
-                    icon: const Icon(
-                      Icons.refresh_rounded,
                     ),
                   ),
                 ],
@@ -261,47 +266,26 @@ class _ProfessionalRequestsScreenState
                 }
 
                 if (_error != null) {
-                  return Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(_error!),
-                        const SizedBox(height: 12),
-                        ElevatedButton(
-                          onPressed: _loadRequests,
-                          child: const Text('Retry'),
-                        ),
-                      ],
-                    ),
+                  return const Center(
+                    child: Text('No requests found'),
                   );
                 }
 
                 final list = _filteredRequests;
 
                 if (list.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text('No requests found'),
-                        const SizedBox(height: 12),
-                        OutlinedButton(
-                          onPressed: _loadRequests,
-                          child: const Text('Refresh'),
-                        ),
-                      ],
-                    ),
+                  return const Center(
+                    child: Text('No requests found'),
                   );
                 }
 
-                return RefreshIndicator(
-                  onRefresh: _loadRequests,
-                  child: ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
-                    itemCount: list.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 14),
-                    itemBuilder: (context, index) {
+                return ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
+                  itemCount: list.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 14),
+                  itemBuilder: (context, index) {
                       final item = list[index] as Map<String, dynamic>;
+                      final requestId = item['id']?.toString() ?? '';
 
                       final status = item['status'] as String? ?? '';
 
@@ -321,9 +305,7 @@ class _ProfessionalRequestsScreenState
                         quotedNum = double.tryParse(quoted);
                       }
 
-                      final budgetStr = quotedNum != null
-                          ? NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: quotedNum.truncateToDouble() == quotedNum ? 0 : 2).format(quotedNum)
-                          : '₹0';
+                      final budgetStr = CurrencyFormat.format(quotedNum);
 
                       final requestedDateRaw = item['requested_date'] as String? ?? '';
                       String requestedDate = requestedDateRaw;
@@ -442,7 +424,7 @@ class _ProfessionalRequestsScreenState
                               children: [
                                 Expanded(child: _InfoTile(icon: Icons.schedule, value: requestedDate)),
                                 const SizedBox(width: 8),
-                                Expanded(child: _InfoTile(icon: Icons.currency_rupee, value: budgetStr)),
+                                Expanded(child: _InfoTile(icon: Icons.attach_money, value: budgetStr)),
                               ],
                             ),
 
@@ -455,12 +437,12 @@ class _ProfessionalRequestsScreenState
                                     children: [
                                       Expanded(
                                         child: OutlinedButton(
-                                          onPressed: (_actionLoading[item['id']] ?? false)
+                                          onPressed: (_actionLoading[requestId] ?? false)
                                               ? null
                                               : () async {
-                                                  await _updateRequestStatus(item['id'], 'REJECTED');
+                                                  await _updateRequestStatus(requestId, 'REJECTED');
                                                 },
-                                          child: _actionLoading[item['id']] == true
+                                          child: _actionLoading[requestId] == true
                                               ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
                                               : const Text('Reject'),
                                         ),
@@ -468,12 +450,12 @@ class _ProfessionalRequestsScreenState
                                       const SizedBox(width: 10),
                                       Expanded(
                                         child: FilledButton(
-                                          onPressed: (_actionLoading[item['id']] ?? false)
+                                          onPressed: (_actionLoading[requestId] ?? false)
                                               ? null
                                               : () async {
-                                                  await _updateRequestStatus(item['id'], 'ACCEPTED');
+                                                  await _updateRequestStatus(requestId, 'ACCEPTED');
                                                 },
-                                          child: _actionLoading[item['id']] == true
+                                          child: _actionLoading[requestId] == true
                                               ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                                               : const Text('Accept'),
                                         ),
@@ -489,7 +471,7 @@ class _ProfessionalRequestsScreenState
                                           context,
                                           MaterialPageRoute(
                                             builder: (_) => CreateQuoteScreen(
-                                              requestId: item['id'] as int,
+                                              requestId: requestId,
                                               title: item['title'] as String? ?? '',
                                               description: item['description'] as String? ?? '',
                                               category: category,
@@ -500,7 +482,9 @@ class _ProfessionalRequestsScreenState
                                         );
 
                                         if (result == true) {
-                                          setState(() {});
+                                          await _loadRequests(
+                                            status: statusValues[_selectedTab],
+                                          );
                                         }
                                       },
                                       icon: const Icon(Icons.send_rounded, size: 16),
@@ -518,7 +502,7 @@ class _ProfessionalRequestsScreenState
                                       context,
                                       MaterialPageRoute(
                                         builder: (_) => CreateQuoteScreen(
-                                          requestId: item['id'] as int,
+                                          requestId: requestId,
                                           title: item['title'] as String? ?? '',
                                           description: item['description'] as String? ?? '',
                                           category: category,
@@ -529,18 +513,47 @@ class _ProfessionalRequestsScreenState
                                     );
 
                                     if (result == true) {
-                                      setState(() {});
+                                      await _loadRequests(
+                                        status: statusValues[_selectedTab],
+                                      );
                                     }
                                   },
                                   icon: const Icon(Icons.send_rounded, size: 16),
                                   label: const Text('Send Quote'),
+                                ),
+                              )
+                            else if (status == 'ACCEPTED')
+                              SizedBox(
+                                width: double.infinity,
+                                child: FilledButton(
+                                  onPressed: (_actionLoading[requestId] ?? false)
+                                      ? null
+                                      : () async {
+                                          await _updateRequestStatus(requestId, 'SCHEDULED');
+                                        },
+                                  child: _actionLoading[requestId] == true
+                                      ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                      : const Text('Mark scheduled'),
+                                ),
+                              )
+                            else if (status == 'SCHEDULED')
+                              SizedBox(
+                                width: double.infinity,
+                                child: FilledButton(
+                                  onPressed: (_actionLoading[requestId] ?? false)
+                                      ? null
+                                      : () async {
+                                          await _updateRequestStatus(requestId, 'COMPLETED');
+                                        },
+                                  child: _actionLoading[requestId] == true
+                                      ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                      : const Text('Mark complete'),
                                 ),
                               ),
                           ],
                         ),
                       );
                     },
-                  ),
                 );
               }),
             ),
@@ -638,6 +651,18 @@ class _StatusBadge extends StatelessWidget {
         textColor = Colors.green;
 
         label = 'ACCEPTED';
+
+        break;
+
+      case 'SCHEDULED':
+        bgColor =
+            Colors.purple.withOpacity(
+          0.12,
+        );
+
+        textColor = Colors.purple;
+
+        label = 'SCHEDULED';
 
         break;
 

@@ -3,7 +3,7 @@ class AppStrings {
 
   static const appTitle = 'AgilizaPro';
   static const homeSubtitle =
-      'Discover curated professionals and services for your next project.';
+      'Discover trusted professionals and book services near you.';
   static const searchHint = 'Search services, pros or topics';
   static const featuredProfessionals = 'Featured professionals';
   static const popularServices = 'Popular services';
@@ -32,7 +32,7 @@ class AppStrings {
   static const emptyTitle = 'No stays found';
   static const emptySubtitle = 'Pull to refresh or try later.';
   static const loadingMessage = 'Finding the perfect match...';
-  static const splashSubtitle = 'Fast, flexible journeys start here.';
+  static const splashSubtitle = 'Book trusted local professionals in minutes.';
   static const loginTitle = 'Sign in to AgilizaPro';
   static const loginSubtitle = 'Access your trips, stays, and reservations.';
   static const loginButton = 'Continue';
@@ -68,6 +68,7 @@ class AppStrings {
   static const experienceLabel = 'Experience';
   static const hourlyRateLabel = 'Hourly rate';
   static const hourlyRateSuffix = 'USD/hr';
+  static const currencySymbol = '\$';
   static const serviceRadiusLabel = 'Service radius';
   static const serviceRadiusSuffix = 'km';
   static const categoryLabel = 'Category';

@@ -11,6 +11,7 @@ import 'profile_screen.dart';
 import 'request_history_screen.dart';
 import 'home_providers.dart';
 import '../data/models/backend_models.dart';
+import '../../../core/utils/currency_format.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -665,14 +666,14 @@ class _ProfessionalCard extends StatelessWidget {
             Row(
               children: [
                 Icon(
-                  Icons.currency_rupee,
+                  Icons.attach_money,
                   size: 15,
                   color:
                       Colors.grey.shade600,
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  '${professional.hourlyRate}/hr',
+                  CurrencyFormat.perHour(professional.hourlyRate),
                   style: TextStyle(
                     fontSize: 13,
                     color:

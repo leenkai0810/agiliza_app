@@ -44,6 +44,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _submit() async {
+    FocusScope.of(context).unfocus();
+
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -55,35 +57,61 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     try {
       final authNotifier = ref.read(authNotifierProvider.notifier);
+
       final result = await authNotifier.login(
         email: _emailController.text.trim(),
-        password: _passwordController.text,
+        password: _passwordController.text.trim(),
       );
 
       if (!mounted) return;
 
-      if (result['success'] as bool) {
+      final bool success = result['success'] == true;
+
+      if (success) {
         final authState = ref.read(authNotifierProvider);
-        final targetRoute = authState.role == UserRole.professional
-            ? '/dashboard'
-            : '/home';
+
+        final targetRoute =
+            authState.role == UserRole.professional
+                ? '/professional-root'
+                : '/home';
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(result['message'] ?? 'Login successful'),
+            content: Text(
+              result['message']?.toString() ?? 'Login successful',
+            ),
             backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
           ),
         );
+
         context.go(targetRoute);
       } else {
+        final errorMessage =
+            result['message']?.toString() ??
+            'Invalid email or password';
+
         setState(() {
-          _loginError = result['message']?.toString() ?? 'Login failed';
+          _loginError = errorMessage;
         });
       }
     } catch (e) {
       if (!mounted) return;
+
+      String errorMessage = 'Something went wrong. Please try again.';
+
+      final error = e.toString().toLowerCase();
+
+      if (error.contains('socket')) {
+        errorMessage = 'No internet connection';
+      } else if (error.contains('timeout')) {
+        errorMessage = 'Request timed out';
+      } else if (error.contains('401')) {
+        errorMessage = 'Invalid email or password';
+      }
+
       setState(() {
-        _loginError = 'Something went wrong. Please try again.';
+        _loginError = errorMessage;
       });
     } finally {
       if (mounted) {
@@ -93,7 +121,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
     }
   }
-
   void _handleSocialSignIn(String provider) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Continue with $provider coming soon')),
@@ -120,6 +147,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final currentError = _loginError;
+    final isLoading = _isLoading;
+
     return Scaffold(
       backgroundColor: theme.colorScheme.surfaceVariant,
       body: SafeArea(
@@ -185,7 +215,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                             validator: _validatePassword,
                           ),
-                          if (_loginError != null) ...[
+                          if (currentError != null) ...[
                             const SizedBox(height: AppSizes.sm),
                             Container(
                               padding: const EdgeInsets.all(AppSizes.sm),
@@ -206,7 +236,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   const SizedBox(width: AppSizes.sm),
                                   Expanded(
                                     child: Text(
-                                      _loginError!,
+                                      currentError,
                                       style: theme.textTheme.bodySmall
                                           ?.copyWith(
                                             color: theme
@@ -229,8 +259,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                           const SizedBox(height: AppSizes.md),
                           FilledButton(
-                            onPressed: _isLoading ? null : _submit,
-                            child: _isLoading
+                            onPressed: isLoading ? null : _submit,
+                            child: isLoading
                                 ? const SizedBox(
                                     height: 20,
                                     width: 20,

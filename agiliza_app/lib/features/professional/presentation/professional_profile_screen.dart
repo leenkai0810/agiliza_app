@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/auth/auth_notifier.dart';
 import '../../../core/constants/app_sizes.dart';
+import '../../../core/utils/currency_format.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/widgets/app_back_app_bar.dart';
 
@@ -318,11 +319,13 @@ class _ProfessionalProfileScreenState
                 ),
                 _InfoTile(
                   icon:
-                      Icons.currency_rupee,
+                      Icons.attach_money,
                   title:
                       'Hourly Rate',
                   value:
-                      '₹$hourlyRate/hr',
+                      CurrencyFormat.perHour(
+                        double.tryParse(hourlyRate) ?? 0,
+                      ),
                 ),
                 _InfoTile(
                   icon:

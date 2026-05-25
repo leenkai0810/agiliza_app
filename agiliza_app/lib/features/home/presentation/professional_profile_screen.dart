@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/constants/app_sizes.dart';
+import '../../../core/utils/currency_format.dart';
 import '../../../core/widgets/app_back_app_bar.dart';
 import '../../../core/widgets/error_view.dart';
 import '../data/models/backend_models.dart';
@@ -131,9 +131,9 @@ class ProfessionalProfileScreen extends ConsumerWidget {
                 const SizedBox(height: 14),
 
                 _DetailCard(
-                  icon: Icons.currency_rupee,
+                  icon: Icons.attach_money,
                   title: 'Hourly Rate',
-                  value: '₹${profile.hourlyRate}/hour',
+                  value: CurrencyFormat.perHour(profile.hourlyRate),
                 ),
 
                 const SizedBox(height: 12),
@@ -312,7 +312,12 @@ class ProfessionalProfileScreen extends ConsumerWidget {
                           ),
                         ),
                         onPressed: () {
-                          context.push('/quote-response');
+                          final categoryParam = profile.categories.isNotEmpty
+                              ? '&category=${profile.categories.first.id}'
+                              : '';
+                          context.push(
+                            '/service-request?professional=${profile.id}$categoryParam',
+                          );
                         },
                         child: const Text(
                           'Request Quote',
@@ -333,7 +338,12 @@ class ProfessionalProfileScreen extends ConsumerWidget {
                           ),
                         ),
                         onPressed: () {
-                          context.push('/service-request');
+                          final categoryParam = profile.categories.isNotEmpty
+                              ? '&category=${profile.categories.first.id}'
+                              : '';
+                          context.push(
+                            '/service-request?professional=${profile.id}$categoryParam',
+                          );
                         },
                         child: const Text(
                           'Book Service',

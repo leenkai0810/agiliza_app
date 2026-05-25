@@ -6,6 +6,10 @@ import 'app.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: '.env');
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (_) {
+    // Optional local overrides; app falls back to compile-time/default API URL.
+  }
   runApp(const ProviderScope(child: App()));
 }

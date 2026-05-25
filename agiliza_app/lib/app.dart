@@ -4,13 +4,12 @@ import 'package:go_router/go_router.dart';
 
 import 'core/auth/auth_notifier.dart';
 import 'core/auth/auth_role.dart';
+import 'core/router/go_router_refresh.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/presentation/login_screen.dart';
 import 'features/auth/presentation/sign_up_screen.dart';
-import 'features/home/domain/entities/listing.dart';
 import 'features/home/presentation/categories_screen.dart';
 import 'features/home/presentation/home_screen.dart';
-import 'features/home/presentation/listing_detail_screen.dart';
 import 'features/home/presentation/professional_listing_screen.dart';
 import 'features/home/presentation/professional_profile_screen.dart';
 import 'features/home/presentation/quote_response_screen.dart';
@@ -18,7 +17,6 @@ import 'features/home/presentation/request_history_screen.dart';
 import 'features/home/presentation/service_request_form_screen.dart';
 import 'features/home/presentation/favorites_screen.dart';
 import 'features/home/presentation/review_submission_screen.dart';
-import 'features/professional/presentation/professional_dashboard_screen.dart';
 import 'features/professional/presentation/professional_root_screen.dart';
 import 'features/professional/presentation/edit_professional_profile_screen.dart';
 import 'features/professional/presentation/portfolio_management_screen.dart';
@@ -27,11 +25,11 @@ import 'features/professional/presentation/weekly_availability_screen.dart';
 import 'features/splash/presentation/splash_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authNotifierProvider);
+  final authState = ref.read(authNotifierProvider);
+  final refresh = GoRouterRefresh(ref);
 
   final professionalOnlyPaths = <String>{
     '/professional-root',
-    '/dashboard',
     '/edit-profile',
     '/portfolio',
     '/weekly-availability',
@@ -44,10 +42,12 @@ final routerProvider = Provider<GoRouter>((ref) {
     '/quote-response',
     '/request-history',
     '/favorites',
+    '/review-submission',
   };
 
   return GoRouter(
     initialLocation: '/',
+    refreshListenable: refresh,
     routes: [
       GoRoute(
         path: '/',
@@ -82,13 +82,20 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/service-request',
-        builder: (context, state) => const ServiceRequestFormScreen(),
+        builder: (context, state) => ServiceRequestFormScreen(
+          professionalProfileId: state.queryParameters['professional'],
+          initialCategoryId: state.queryParameters['category'],
+        ),
       ),
       GoRoute(
         path: '/quote-response',
-        builder: (context, state) => QuoteResponseScreen(
-          quote: state.extra as QuoteResponse?,
-        ),
+        builder: (context, state) {
+          final args = state.extra as QuoteScreenArgs?;
+          if (args == null) {
+            return const QuoteResponseScreen();
+          }
+          return QuoteResponseScreen(args: args);
+        },
       ),
       GoRoute(
         path: '/request-history',
@@ -100,15 +107,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/review-submission',
-        builder: (context, state) => const ReviewSubmissionScreen(),
+        builder: (context, state) {
+          final args = state.extra as ReviewScreenArgs?;
+          return ReviewSubmissionScreen(args: args);
+        },
       ),
       GoRoute(
         path: '/professional-root',
         builder: (context, state) => const ProfessionalRootScreen(),
-      ),
-      GoRoute(
-        path: '/dashboard',
-        builder: (context, state) => const ProfessionalDashboardScreen(),
       ),
       GoRoute(
         path: '/edit-profile',
@@ -130,26 +136,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/home',
         builder: (context, state) => const HomeScreen(),
       ),
-      GoRoute(
-        path: '/listing',
-        builder: (context, state) {
-          final listing = state.extra as Listing?;
-          return ListingDetailScreen(
-            listing: listing ??
-                Listing(
-                  id: '0',
-                  title: 'Stay details unavailable',
-                  location: '',
-                  category: '',
-                  price: '',
-                  duration: '',
-                  rating: 0.0,
-                  imageUrl: '',
-                  description: 'No listing was provided for this screen.',
-                ),
-          );
-        },
-      ),
     ],
     redirect: (context, state) {
       if (authState.isLoading) {
@@ -158,9 +144,11 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       final isAuthenticated = authState.isAuthenticated;
       final isProfessional = authState.role == UserRole.professional;
-      final isGoingToLogin = state.location == '/login' || state.location == '/signup' || state.location == '/';
+      final isGoingToLogin =
+          state.location == '/login' || state.location == '/signup' || state.location == '/';
       final path = state.location.split('?').first;
-      final isClientOnly = clientOnlyPaths.contains(path) || path.startsWith('/professional-profile');
+      final isClientOnly =
+          clientOnlyPaths.contains(path) || path.startsWith('/professional-profile');
       final isProfessionalOnly = professionalOnlyPaths.contains(path);
 
       if (!isAuthenticated && !isGoingToLogin) {

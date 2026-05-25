@@ -1,17 +1,34 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_sizes.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/widgets/app_back_app_bar.dart';
+import '../../../core/widgets/error_view.dart';
+import 'home_providers.dart';
 
-class ReviewSubmissionScreen extends StatefulWidget {
-  const ReviewSubmissionScreen({super.key});
+class ReviewScreenArgs {
+  final String professionalProfileId;
+  final String? serviceRequestId;
 
-  @override
-  State<ReviewSubmissionScreen> createState() => _ReviewSubmissionScreenState();
+  const ReviewScreenArgs({
+    required this.professionalProfileId,
+    this.serviceRequestId,
+  });
 }
 
-class _ReviewSubmissionScreenState extends State<ReviewSubmissionScreen> {
+class ReviewSubmissionScreen extends ConsumerStatefulWidget {
+  const ReviewSubmissionScreen({super.key, this.args});
+
+  final ReviewScreenArgs? args;
+
+  @override
+  ConsumerState<ReviewSubmissionScreen> createState() =>
+      _ReviewSubmissionScreenState();
+}
+
+class _ReviewSubmissionScreenState extends ConsumerState<ReviewSubmissionScreen> {
   final _formKey = GlobalKey<FormState>();
   final _commentController = TextEditingController();
   int _rating = 5;
@@ -24,35 +41,65 @@ class _ReviewSubmissionScreenState extends State<ReviewSubmissionScreen> {
   }
 
   void _setRating(int rating) {
-    setState(() {
-      _rating = rating;
-    });
+    setState(() => _rating = rating);
   }
 
   Future<void> _submitReview() async {
+    final args = widget.args;
+    if (args == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Review context is missing.')),
+      );
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) {
       return;
     }
-    setState(() {
-      _isSubmitting = true;
-    });
-    await Future.delayed(const Duration(milliseconds: 900));
-    if (!mounted) return;
-    setState(() {
-      _isSubmitting = false;
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Review submitted successfully.')),
-    );
-    _formKey.currentState?.reset();
-    setState(() {
-      _rating = 5;
-    });
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      await ref.read(backendApiServiceProvider).createReview(
+            professionalProfileId: args.professionalProfileId,
+            rating: _rating,
+            comment: _commentController.text.trim(),
+            serviceRequestId: args.serviceRequestId,
+          );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Review submitted successfully.')),
+      );
+      context.pop(true);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Unable to submit review: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final args = widget.args;
+
+    if (args == null) {
+      return Scaffold(
+        appBar: const AppBackAppBar(title: Text(AppStrings.reviewSubmissionTitle)),
+        body: ErrorView(
+          message: 'Open this screen from a completed service request.',
+          onRetry: () => context.pop(),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: const AppBackAppBar(
@@ -70,14 +117,15 @@ class _ReviewSubmissionScreenState extends State<ReviewSubmissionScreen> {
               Text(AppStrings.ratingLabel, style: theme.textTheme.titleMedium),
               const SizedBox(height: AppSizes.sm),
               Row(
-                mainAxisAlignment: MainAxisAlignment.start,
                 children: List.generate(5, (index) {
                   final value = index + 1;
                   return IconButton(
                     onPressed: () => _setRating(value),
                     icon: Icon(
                       value <= _rating ? Icons.star : Icons.star_border,
-                      color: value <= _rating ? theme.colorScheme.primary : theme.iconTheme.color,
+                      color: value <= _rating
+                          ? theme.colorScheme.primary
+                          : theme.iconTheme.color,
                     ),
                   );
                 }),
@@ -105,7 +153,10 @@ class _ReviewSubmissionScreenState extends State<ReviewSubmissionScreen> {
                     ? const SizedBox(
                         height: 20,
                         width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.4,
+                          color: Colors.white,
+                        ),
                       )
                     : const Text(AppStrings.submitReviewButton),
               ),

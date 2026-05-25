@@ -274,7 +274,8 @@ class ServiceRequest {
         ? categoryRaw['name']?.toString() ?? ''
         : categoryRaw?.toString() ?? '';
 
-    final professionalRaw = json['professional_profile'];
+    final professionalRaw =
+        json['professional_profile'] ?? json['professional_profile_data'];
     final professional = professionalRaw is Map<String, dynamic>
         ? ProfessionalProfile.fromJson(professionalRaw)
         : null;
@@ -319,14 +320,19 @@ class QuoteResponse {
         ? ProfessionalProfile.fromJson(professionalRaw)
         : null;
 
-    final requestRaw = json['service_request'];
+    final requestRaw =
+        json['service_request_data'] ?? json['service_request'];
     final serviceRequest = requestRaw is Map<String, dynamic>
         ? ServiceRequest.fromJson(requestRaw)
         : null;
 
+    final requestIdRaw = json['service_request'];
+    final serviceRequestId = serviceRequest?.id ??
+        (requestIdRaw is Map ? null : requestIdRaw?.toString() ?? '');
+
     return QuoteResponse(
       id: json['id']?.toString() ?? '',
-      serviceRequestId: serviceRequest?.id ?? json['service_request']?.toString() ?? '',
+      serviceRequestId: serviceRequestId ?? '',
       price: json['price']?.toString() ?? '',
       duration: json['duration']?.toString() ?? '',
       message: json['message']?.toString() ?? '',

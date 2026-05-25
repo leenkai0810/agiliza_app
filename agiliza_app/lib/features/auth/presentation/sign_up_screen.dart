@@ -105,7 +105,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
       if (result['success'] as bool) {
         final authState = ref.read(authNotifierProvider);
         final targetRoute = authState.role == UserRole.professional
-            ? '/dashboard'
+            ? '/professional-root'
             : '/home';
 
         ScaffoldMessenger.of(context).showSnackBar(

@@ -58,7 +58,7 @@ class _SplashScreenState
         authState.isAuthenticated
             ? authState.role ==
                     UserRole.professional
-                ? '/dashboard'
+                ? '/professional-root'
                 : '/home'
             : '/login';
 
@@ -123,7 +123,7 @@ class _SplashScreenState
                   child: const Center(
                     child: Icon(
                       Icons
-                          .flight_takeoff_rounded,
+                          .handyman_rounded,
                       color: Colors.white,
                       size: 48,
                     ),

@@ -137,6 +137,7 @@ class RequestHistoryNotifier extends AutoDisposeAsyncNotifier<List<ServiceReques
     required String requestedDate,
     required String scheduledDate,
     required String categoryId,
+    String? professionalProfileId,
     double? latitude,
     double? longitude,
   }) async {
@@ -147,11 +148,81 @@ class RequestHistoryNotifier extends AutoDisposeAsyncNotifier<List<ServiceReques
           requestedDate: requestedDate,
           scheduledDate: scheduledDate,
           categoryId: categoryId,
+          professionalProfileId: professionalProfileId,
           latitude: latitude,
           longitude: longitude,
         );
     await refresh();
     return created;
+  }
+
+  Future<ServiceRequest> updateRequestStatus({
+    required String requestId,
+    required String status,
+  }) async {
+    final updated = await ref.read(backendApiServiceProvider).updateRequestStatus(
+          requestId: requestId,
+          status: status,
+        );
+    await refresh();
+    return updated;
+  }
+}
+
+final quotesProvider = AutoDisposeAsyncNotifierProvider<QuotesNotifier, List<QuoteResponse>>(
+  QuotesNotifier.new,
+);
+
+class QuotesNotifier extends AutoDisposeAsyncNotifier<List<QuoteResponse>> {
+  @override
+  Future<List<QuoteResponse>> build() async {
+    return ref.read(backendApiServiceProvider).fetchQuotes();
+  }
+
+  Future<void> refresh() async {
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(() => ref.read(backendApiServiceProvider).fetchQuotes());
+  }
+}
+
+final myProfessionalProfileProvider =
+    AutoDisposeAsyncNotifierProvider<MyProfessionalProfileNotifier, ProfessionalProfile>(
+  MyProfessionalProfileNotifier.new,
+);
+
+class MyProfessionalProfileNotifier extends AutoDisposeAsyncNotifier<ProfessionalProfile> {
+  @override
+  Future<ProfessionalProfile> build() async {
+    return ref.read(backendApiServiceProvider).fetchMyProfessionalProfile();
+  }
+
+  Future<void> refresh() async {
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(() => ref.read(backendApiServiceProvider).fetchMyProfessionalProfile());
+  }
+
+  Future<ProfessionalProfile> updateProfile({
+    required String bio,
+    required int yearsExperience,
+    required double hourlyRate,
+    required int serviceRadiusKm,
+    required String address,
+    double? latitude,
+    double? longitude,
+    List<String>? categoryIds,
+  }) async {
+    final updated = await ref.read(backendApiServiceProvider).updateMyProfessionalProfile(
+          bio: bio,
+          yearsExperience: yearsExperience,
+          hourlyRate: hourlyRate,
+          serviceRadiusKm: serviceRadiusKm,
+          address: address,
+          latitude: latitude,
+          longitude: longitude,
+          categoryIds: categoryIds,
+        );
+    state = AsyncValue.data(updated);
+    return updated;
   }
 }
 
@@ -174,16 +245,18 @@ class PortfolioNotifier extends AutoDisposeAsyncNotifier<List<PortfolioItem>> {
     state = await AsyncValue.guard(_fetchPortfolioItems);
   }
 
-  Future<void> addPortfolioItem({
+  Future<void> addPortfolioItemFromBytes({
     required String title,
     required String description,
-    required String imageUrl,
+    required List<int> imageBytes,
+    String filename = 'portfolio.jpg',
   }) async {
     state = const AsyncValue.loading();
-    await ref.read(backendApiServiceProvider).createPortfolioItem(
+    await ref.read(backendApiServiceProvider).createPortfolioItemFromBytes(
           title: title,
           description: description,
-          imageUrl: imageUrl,
+          imageBytes: imageBytes,
+          filename: filename,
         );
     state = await AsyncValue.guard(_fetchPortfolioItems);
   }
@@ -253,52 +326,3 @@ class AvailabilityNotifier extends AutoDisposeAsyncNotifier<List<AvailabilitySlo
   }
 }
 
-final dashboardSummaryProvider = AutoDisposeAsyncNotifierProvider<DashboardSummaryNotifier, DashboardSummary>(
-  DashboardSummaryNotifier.new,
-);
-
-class DashboardSummaryNotifier extends AutoDisposeAsyncNotifier<DashboardSummary> {
-  @override
-  Future<DashboardSummary> build() async {
-    return _fetchSummary();
-  }
-
-  Future<DashboardSummary> _fetchSummary() async {
-    final requests = await ref.read(backendApiServiceProvider).fetchRequests();
-    final quotes = await ref.read(backendApiServiceProvider).fetchQuotes();
-
-    final pendingRequests = requests.where((r) => r.status == 'PENDING').length;
-    final quotesSent = quotes.length;
-    final upcomingAppointments = requests.where((r) => r.status == 'SCHEDULED' || r.status == 'ACCEPTED').length;
-    final earnings = requests
-        .where((r) => r.status == 'COMPLETED' || r.status == 'ACCEPTED')
-        .map((r) => r.quotedPrice ?? 0)
-        .fold<double>(0, (sum, value) => sum + value);
-
-    return DashboardSummary(
-      pendingRequests: pendingRequests,
-      quotesSent: quotesSent,
-      upcomingAppointments: upcomingAppointments,
-      earnings: earnings,
-    );
-  }
-
-  Future<void> refresh() async {
-    state = const AsyncValue.loading();
-    state = await AsyncValue.guard(_fetchSummary);
-  }
-}
-
-class DashboardSummary {
-  final int pendingRequests;
-  final int quotesSent;
-  final int upcomingAppointments;
-  final double earnings;
-
-  DashboardSummary({
-    required this.pendingRequests,
-    required this.quotesSent,
-    required this.upcomingAppointments,
-    required this.earnings,
-  });
-}

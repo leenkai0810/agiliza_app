@@ -9,6 +9,7 @@ import '../../../core/widgets/app_back_app_bar.dart';
 import '../../../core/widgets/empty_view.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../location/providers/location_provider.dart';
+import '../../../core/utils/currency_format.dart';
 import '../data/models/backend_models.dart';
 import 'home_providers.dart';
 
@@ -864,10 +865,10 @@ class _ProfessionalCard extends StatelessWidget {
                 Expanded(
                   child: _InfoBox(
                     icon:
-                        Icons.currency_rupee,
+                        Icons.attach_money,
                     label: 'Rate',
                     value:
-                        '₹${professional.hourlyRate}/hr',
+                        CurrencyFormat.perHour(professional.hourlyRate),
                   ),
                 ),
               ],

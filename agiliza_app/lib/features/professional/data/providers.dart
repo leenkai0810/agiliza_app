@@ -2,8 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_strings.dart';
 import '../../../core/network/api_client.dart';
-import '../../home/data/models/backend_models.dart';
-
 final professionalDashboardProvider = FutureProvider.autoDispose<ProfessionalDashboard>((ref) async {
   final apiClient = ref.read(apiClientProvider);
   final response = await apiClient.get<Map<String, dynamic>>(
@@ -101,29 +99,3 @@ class ProfessionalReview {
   });
 }
 
-final professionalRequestsProvider = FutureProvider.autoDispose<List<ProfessionalRequest>>((ref) async {
-  await Future.delayed(const Duration(milliseconds: 250));
-  return List.generate(6, (i) => ProfessionalRequest(
-    id: i.toString(),
-    clientName: 'Client ${i+1}',
-    category: 'Plumbing',
-    location: 'Zone ${i+1}',
-    requestedTime: 'Tomorrow 10:${i}0',
-    budget: 50 + i * 20,
-    distanceKm: (i + 1) * 1.2,
-    status: i % 3 == 0 ? 'new' : (i%3==1?'accepted':'quotes'),
-  ));
-});
-
-class ProfessionalRequest {
-  final String id;
-  final String clientName;
-  final String category;
-  final String location;
-  final String requestedTime;
-  final int budget;
-  final double distanceKm;
-  final String status;
-
-  ProfessionalRequest({required this.id, required this.clientName, required this.category, required this.location, required this.requestedTime, required this.budget, required this.distanceKm, required this.status});
-}

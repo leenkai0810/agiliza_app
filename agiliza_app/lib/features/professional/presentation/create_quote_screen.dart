@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_strings.dart';
+import '../../../core/utils/currency_format.dart';
 import '../../../core/network/api_client.dart';
 
 class CreateQuoteScreen extends ConsumerStatefulWidget {
@@ -16,7 +17,7 @@ class CreateQuoteScreen extends ConsumerStatefulWidget {
     required this.address,
   });
 
-  final int requestId;
+  final String requestId;
   final String title;
   final String description;
   final String category;
@@ -162,9 +163,9 @@ class _CreateQuoteScreenState extends ConsumerState<CreateQuoteScreen> {
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'Price',
-                      prefixText: '₹ ',
+                      prefixText: CurrencyFormat.inputPrefix(),
                     ),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
