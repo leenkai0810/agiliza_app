@@ -1,7 +1,16 @@
 from rest_framework import serializers
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
-from .models import CustomUser
+from .models import (
+    AvailabilitySlot,
+    CustomUser,
+    Favorite,
+    PortfolioItem,
+    ProfessionalProfile,
+    Review,
+)
+
+from services.models import ServiceCategory
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -87,6 +96,159 @@ class UserUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
         fields = ('full_name', 'phone', 'profile_image')
+
+class ProfessionalUserSerializer(serializers.ModelSerializer):
+    """Nested serializer for professional user details."""
+
+    class Meta:
+        model = CustomUser
+        fields = (
+            'id',
+            'full_name',
+            'email',
+            'phone',
+            'profile_image',
+        )
+
+
+class ServiceCategoryNestedSerializer(serializers.Serializer):
+    """Nested serializer for service categories."""
+
+    id = serializers.UUIDField(read_only=True)
+    name = serializers.CharField(read_only=True)
+    slug = serializers.CharField(read_only=True)
+    icon = serializers.ImageField(read_only=True)
+
+
+class PortfolioItemSerializer(serializers.ModelSerializer):
+    """Serializer for professional portfolio items."""
+
+    class Meta:
+        model = PortfolioItem
+        fields = (
+            'id',
+            'professional_profile',
+            'title',
+            'description',
+            'image',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = ('id', 'professional_profile', 'created_at', 'updated_at')
+
+class AvailabilitySlotSerializer(serializers.ModelSerializer):
+    """Serializer for weekly professional availability slots."""
+
+    class Meta:
+        model = AvailabilitySlot
+        fields = (
+            'id',
+            'professional_profile',
+            'day_of_week',
+            'start_time',
+            'end_time',
+            'is_active',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = ('id', 'professional_profile', 'created_at', 'updated_at')
+
+    def validate(self, data):
+        start_time = data.get('start_time', getattr(self.instance, 'start_time', None))
+        end_time = data.get('end_time', getattr(self.instance, 'end_time', None))
+        if start_time and end_time and end_time <= start_time:
+            raise serializers.ValidationError(
+                {'end_time': 'End time must be after start time.'}
+            )
+        return data
+
+class ProfessionalProfileSerializer(serializers.ModelSerializer):
+    """Serializer for professional profile details."""
+
+    user = ProfessionalUserSerializer(read_only=True)
+
+    service_categories = ServiceCategoryNestedSerializer(
+        many=True,
+        read_only=True,
+    )
+    portfolio = PortfolioItemSerializer(
+        source='portfolio_items',
+        many=True,
+        read_only=True,
+    )
+    availability = AvailabilitySlotSerializer(
+        source='availability_slots',
+        many=True,
+        read_only=True,
+    )
+
+    class Meta:
+        model = ProfessionalProfile
+        fields = (
+            'id',
+            'user',
+            'bio',
+            'years_experience',
+            'hourly_rate',
+            'service_categories',
+            'portfolio',
+            'availability',
+            'service_radius_km',
+            'address',
+            'latitude',
+            'longitude',
+            'average_rating',
+            'total_reviews',
+        )
+
+        read_only_fields = (
+            'id',
+            'average_rating',
+            'total_reviews',
+        )
+
+
+
+class FavoriteSerializer(serializers.ModelSerializer):
+    """Serializer for saved professionals."""
+
+    professional = ProfessionalProfileSerializer(
+        source='professional_profile',
+        read_only=True,
+    )
+
+    class Meta:
+        model = Favorite
+
+        fields = (
+            'id',
+            'client',
+            'professional_profile',
+            'professional',
+            'created_at',
+        )
+
+        read_only_fields = (
+            'id',
+            'client',
+            'created_at',
+        )
+
+class ReviewSerializer(serializers.ModelSerializer):
+    """Serializer for professional reviews."""
+
+    class Meta:
+        model = Review
+        fields = (
+            'id',
+            'client',
+            'professional_profile',
+            'rating',
+            'comment',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = ('id', 'client', 'created_at', 'updated_at')
 
 
 class TokenSerializer(serializers.Serializer):

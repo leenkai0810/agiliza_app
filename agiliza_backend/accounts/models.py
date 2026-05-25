@@ -1,5 +1,8 @@
 from django.db import models
+from django.conf import settings
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager
+from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.utils import timezone
 
 
@@ -76,3 +79,183 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 
     def get_short_name(self):
         return self.email
+
+
+class ProfessionalProfile(models.Model):
+    """Extended profile details for professional users."""
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='professional_profile',
+    )
+    bio = models.TextField(blank=True)
+    years_experience = models.PositiveIntegerField(default=0)
+    hourly_rate = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    service_categories = models.ManyToManyField(
+        'services.ServiceCategory',
+        related_name='professional_profiles',
+        blank=True,
+    )
+    service_radius_km = models.PositiveIntegerField(default=0)
+    address = models.TextField(blank=True)
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    average_rating = models.DecimalField(max_digits=3, decimal_places=2, default=0)
+    total_reviews = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        verbose_name = 'Professional profile'
+        verbose_name_plural = 'Professional profiles'
+
+    def __str__(self):
+        return f'{self.user.email} professional profile'
+
+
+class PortfolioItem(models.Model):
+    """Portfolio work sample uploaded by a professional."""
+
+    professional_profile = models.ForeignKey(
+        ProfessionalProfile,
+        on_delete=models.CASCADE,
+        related_name='portfolio_items',
+    )
+    title = models.CharField(max_length=150)
+    description = models.TextField(blank=True)
+    image = models.ImageField(upload_to='portfolio_items/')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('-created_at',)
+
+    def __str__(self):
+        return self.title
+
+
+class AvailabilitySlot(models.Model):
+    """Reusable weekly availability slot for a professional."""
+
+    class DayOfWeek(models.IntegerChoices):
+        MONDAY = 0, 'Monday'
+        TUESDAY = 1, 'Tuesday'
+        WEDNESDAY = 2, 'Wednesday'
+        THURSDAY = 3, 'Thursday'
+        FRIDAY = 4, 'Friday'
+        SATURDAY = 5, 'Saturday'
+        SUNDAY = 6, 'Sunday'
+
+    professional_profile = models.ForeignKey(
+        ProfessionalProfile,
+        on_delete=models.CASCADE,
+        related_name='availability_slots',
+    )
+    day_of_week = models.PositiveSmallIntegerField(choices=DayOfWeek.choices)
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=('professional_profile', 'day_of_week', 'start_time', 'end_time'),
+                name='unique_availability_slot_per_professional',
+            ),
+        ]
+        ordering = ('day_of_week', 'start_time')
+
+    def __str__(self):
+        day = self.get_day_of_week_display()
+        return f'{self.professional_profile.user.email}: {day} {self.start_time}-{self.end_time}'
+
+    def clean(self):
+        super().clean()
+        if self.end_time <= self.start_time:
+            raise ValidationError({'end_time': 'End time must be after start time.'})
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
+class Favorite(models.Model):
+    """Professional saved by a client."""
+
+    client = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='favorite_professionals',
+    )
+    professional_profile = models.ForeignKey(
+        ProfessionalProfile,
+        on_delete=models.CASCADE,
+        related_name='favorited_by',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=('client', 'professional_profile'),
+                name='unique_favorite_professional_per_client',
+            ),
+        ]
+        ordering = ('-created_at',)
+
+    def __str__(self):
+        return f'{self.client.email} saved {self.professional_profile.user.email}'
+
+
+class Review(models.Model):
+    """Client review for a professional profile."""
+
+    client = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='reviews',
+    )
+    professional_profile = models.ForeignKey(
+        ProfessionalProfile,
+        on_delete=models.CASCADE,
+        related_name='reviews',
+    )
+    rating = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(5)]
+    )
+    comment = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=('client', 'professional_profile'),
+                name='unique_review_per_client_professional',
+            ),
+        ]
+        ordering = ('-created_at',)
+
+    def __str__(self):
+        return f'{self.rating}/5 review for {self.professional_profile.user.email}'
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        self.update_professional_rating()
+
+    def delete(self, *args, **kwargs):
+        professional_profile = self.professional_profile
+        result = super().delete(*args, **kwargs)
+        self.update_professional_rating(professional_profile)
+        return result
+
+    def update_professional_rating(self, professional_profile=None):
+        professional_profile = professional_profile or self.professional_profile
+        summary = professional_profile.reviews.aggregate(
+            average_rating=models.Avg('rating'),
+            total_reviews=models.Count('id'),
+        )
+        professional_profile.average_rating = round(summary['average_rating'] or 0, 2)
+        professional_profile.total_reviews = summary['total_reviews']
+        professional_profile.save(update_fields=('average_rating', 'total_reviews'))
