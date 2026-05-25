@@ -135,11 +135,18 @@ class ServiceRequestStatusSerializer(serializers.Serializer):
 class QuoteResponseSerializer(serializers.ModelSerializer):
     """Serializer for professional quote responses."""
 
+    professional_profile = ProfessionalProfileSerializer(read_only=True)
+    service_request_data = ServiceRequestSerializer(
+        source="service_request",
+        read_only=True,
+    )
+
     class Meta:
         model = QuoteResponse
         fields = (
             "id",
             "service_request",
+            "service_request_data",
             "professional_profile",
             "price",
             "duration",

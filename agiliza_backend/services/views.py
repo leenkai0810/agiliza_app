@@ -26,8 +26,7 @@ class ServiceCategoryViewSet(ReadOnlyModelViewSet):
     search_fields = ["name", "description"]
     ordering_fields = ["name", "created_at"]
     ordering = ["name"]
-    print("ServiceCategoryViewSet initialized")
-    print("Initial queryset count: ", ServiceCategory.objects.filter(is_active=True).count())
+
     def get_queryset(self):
         queryset = ServiceCategory.objects.filter(is_active=True)
         slug = self.request.query_params.get("slug")

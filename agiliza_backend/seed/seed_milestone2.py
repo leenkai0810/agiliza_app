@@ -189,11 +189,11 @@ for prof in professional_types:
 # =====================================================
 
 days = [
-    (1, "MONDAY"),
-    (2, "TUESDAY"),
-    (3, "WEDNESDAY"),
-    (4, "THURSDAY"),
-    (5, "FRIDAY"),
+    (0, "MONDAY"),
+    (1, "TUESDAY"),
+    (2, "WEDNESDAY"),
+    (3, "THURSDAY"),
+    (4, "FRIDAY"),
 ]
 for user in professionals:
 

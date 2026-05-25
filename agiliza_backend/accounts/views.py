@@ -27,6 +27,7 @@ from .serializers import (
     FavoriteSerializer,
     PortfolioItemSerializer,
     ProfessionalProfileSerializer,
+    ProfessionalProfileUpdateSerializer,
     ReviewSerializer,
     UserRegistrationSerializer,
     UserLoginSerializer,
@@ -62,11 +63,8 @@ class ProfessionalProfileViewSet(ReadOnlyModelViewSet):
         queryset = ProfessionalProfile.objects.select_related('user').prefetch_related(
             'service_categories'
         )
-        print("Initial queryset count: ", queryset.count())
         params = self.request.query_params
-        print("Query params are: ", params)
         category = params.get('category')
-        print("Category filter is: ", category)
         if category:
             queryset = queryset.filter(service_categories__slug=category)
             if category.isdigit():
@@ -75,7 +73,6 @@ class ProfessionalProfileViewSet(ReadOnlyModelViewSet):
                 )
 
         min_rating = params.get('min_rating') or params.get('rating')
-        print("Rating filter is: ", min_rating)
         if min_rating:
             try:
                 min_rating = float(min_rating)
@@ -116,8 +113,9 @@ class ProfessionalProfileViewSet(ReadOnlyModelViewSet):
 
     @action(
         detail=False,
-        methods=['get'],
+        methods=['get', 'patch', 'put'],
         permission_classes=[IsAuthenticated],
+        url_path='me',
     )
     def me(self, request):
         if request.user.role != 'PROFESSIONAL':
@@ -133,10 +131,22 @@ class ProfessionalProfileViewSet(ReadOnlyModelViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        serializer = self.get_serializer(
-            professional_profile
+        if request.method == 'GET':
+            serializer = self.get_serializer(professional_profile)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        partial = request.method == 'PATCH'
+        serializer = ProfessionalProfileUpdateSerializer(
+            professional_profile,
+            data=request.data,
+            partial=partial,
         )
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(
+            ProfessionalProfileSerializer(professional_profile).data,
+            status=status.HTTP_200_OK,
+        )
 
 
 class PortfolioItemViewSet(ModelViewSet):
@@ -242,9 +252,7 @@ class UserRegistrationView(APIView):
     def post(self, request):
         """Register a new user."""
         serializer = UserRegistrationSerializer(data=request.data)
-        print("Serializer is: ",serializer)
         if serializer.is_valid():
-            print("Serializer is valid")
             user = serializer.save()
             refresh = RefreshToken.for_user(user)
             return Response(
